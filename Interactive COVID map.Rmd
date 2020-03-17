@@ -1,0 +1,149 @@
+---
+title: "project 3 additional"
+author: "Jiajia"
+date: "2020/3/16"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+#basic data
+library(tidyverse)
+library(shiny)
+
+#scriping
+library(rvest) 
+library(robotstxt)
+
+#map
+library(RColorBrewer)
+library(leaflet)
+```
+
+
+```{r}
+#input live data from github
+confirmed <- read.csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Confirmed.csv")
+death <- read.csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Deaths.csv")
+recovered <- read.csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Recovered.csv")
+```
+
+```{r}
+#filer data with date
+take_data <- function(dataset){
+ #return latitue and newest data
+  newest_date <-length(names(dataset))
+  newest_date<- names(dataset[newest_date])
+  names(dataset)[names(dataset)==newest_date] <- "newest"
+  dataset <-dataset %>% unite(col=id1, Lat,Long,sep="/")
+  dataset <-dataset %>% unite(col=id, id1,Country.Region,sep="/")
+  return(dataset%>%select(id,newest))
+}
+```
+
+```{r}
+reco <- take_data(recovered)
+names(reco)[names(reco)=="newest"] <- "n_recovered"
+deat <- take_data(death)
+names(deat)[names(deat)=="newest"] <- "n_death"
+conf <- take_data(confirmed)
+names(conf)[names(conf)=="newest"] <- "n_confirmed"
+
+tot_1 <- conf%>%left_join(reco, by="id") %>%left_join(deat, by="id")
+df<- tot_1 %>% separate(id, into = c("Lat", "Long","Country.Region"), sep="/", convert=TRUE)
+#takeout zero value
+row_sub <- apply(data.frame(df$n_confirmed), 1, function(row) all(row !=0 ))
+df<- df[row_sub,]
+
+#change name 
+names(df)[names(df)=="Country.Region"] <- "names"
+df$names <- df$names %>% as.character()
+##convert the country name into country code
+df$names[df$names=="US"]<-"United States of America"  
+df$names[df$names=="Mainland China"]<-"China"
+df$names[df$names=="UK"]<-"United Kingdom"
+
+#calculate country total
+total_conf <- df %>% group_by(names) %>% summarize(total_con = sum(n_confirmed))
+total_deat <- df %>% group_by(names) %>% summarize (total_dea = sum(n_death)) 
+total_reco <- df %>% group_by(names) %>% summarize (total_rec = sum(n_recovered)) 
+total_case <- total_conf%>% full_join(total_deat, by="names") %>%full_join(total_reco, by="names")
+
+#coloring the map by confirmed case
+## Load nation boundary GeoJson Package
+library(geojsonio)
+WorldCountry <-geojsonio::geojson_read("https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json", what = "sp")
+
+##add new data to WorldCountry.json
+wc <- tibble(WorldCountry$name) %>%
+  rename(name="WorldCountry$name") %>%
+  left_join(total_case, by=c("name"="names"))
+WorldCountry$total_con <- wc$total_con
+WorldCountry$total_dea <- wc$total_dea
+WorldCountry$total_rec <- wc$total_rec
+```
+
+
+```{r}
+##make color pallet
+library(RColorBrewer)
+mybins <- c(0,10,100,1000,10000,Inf)
+mypalette <- colorBin( palette="YlOrRd", domain=total_case$total_con, na.color="transparent", bins=mybins)
+
+# Filter data that is compatible with boundary data
+data_Map <- WorldCountry[WorldCountry$name %in% total_case$names, ]
+##make a tag
+mytext <- paste(
+   "Country: ", data_Map$name,"<br/>", 
+   "Infection: ", data_Map$total_con, "<br/>",
+   "Death: ", data_Map$total_dea,  "<br/>",
+   "Recovered:", data_Map$total_rec,
+   sep="") %>%
+  lapply(htmltools::HTML)
+```
+
+
+```{r}
+#integrate color and number map
+m <- leaflet(data_Map) %>% 
+  addTiles() %>%
+  addPolygons(fillColor = ~mypalette(total_con), stroke=FALSE,smoothFactor = 0.2, fillOpacity = 0.5,label = mytext, labelOptions = labelOptions(style = list("font-weight" = "normal", padding = "3px 8px"), textsize = "13px", direction = "auto" )) %>% 
+  addLegend( pal=mypalette, values=~total_con, opacity=0.5, title = "Number of Infection", position = "bottomleft" ) %>% 
+  addCircleMarkers(lng = ~df$Long, lat = ~df$Lat, label = ~as.character(df$n_confirmed), radius = ~df$n_confirmed/500,clusterOptions = markerClusterOptions(),labelOptions = labelOptions(noHide = T, direction = 'left'))
+```
+
+```{r}
+library(shiny)
+library(leaflet)
+
+ui <- fluidPage(
+  leafletOutput("mymap"),
+  p(),
+  actionButton("recalc", "New points")
+)
+
+server <- function(input, output, session) {
+
+  points <- eventReactive(input$recalc, {
+    cbind(rnorm(40) * 2 + 13, rnorm(40) + 48)
+  }, ignoreNULL = FALSE)
+
+  output$mymap <- renderLeaflet({
+    m
+  })
+}
+
+shinyApp(ui, server)
+```
+
+
+
+
+
+
+                                                                                                                                                                               
+                                                                                                                                                                                 
