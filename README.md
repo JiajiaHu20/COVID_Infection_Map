@@ -1,2 +1,15 @@
 # COVID_Infection_Map
-an interactive map based on R, ShinyApp and Leaflet
+An interactive map based on R, ShinyApp and Leaflet
+I made an interactive map displaying the most up-to-date information about coronavirus infection. The map was built with shiny-app, leaflet, R color brewer, and geojson package, and data sourced from the GitHub COVID repository which was updated daily by the John Hopkins Research Center.
+
+The app features an interactive world map with countries color-coded by the number of COVID infection, the numbered round makers are clickable and allow users to zoom in to see the infection data by states/provinces. The state-level data are represented by blue round markers with its seize representing the number of infection and a tag detailing the exact number of confirmed COVID case. Finally, users can also hover their curser on colored countries to see the exact number of confirmed, recovered and death cases of COVID up the date.
+
+The map was realized through the Leaflet for R package and shiny app package. Leaflet provided detailed map sources from Open Map, and it allows users to zoom in and out to see the map with more or less detail. I then added markers and tags showing the number of confirmed COVID cases by state and mark them by their longitude and latitude. However, there are too many makers and can look quite clustered. I thus build an expandable version of the cluster. Leaflet comes with a javascript-based native add-on function that allows the clustering of markers. Once a user clicks on a numbered marker, it automatically zooms in on the map and expands the marker into few other markers. Once the user zoomed in to the last layer, users will see the exact coordinate and number of confirmed COVID case. 
+
+I color-coded countries with regard to their total confirmed case. Because leaflet operates by coordinates, we cannot directly color the map with only the name of the country, instead, I downed a JSON dataset that contained the data of countries' border information and read it through the GeoJson package. I also processed the data using summarize function and left join. I also manually changed a few names of the country to ensure the geoJson dataset merge well with the infection data. I also used R color brewer to give the map an appropriate red-orange-yellow color pallet. 
+
+Finally, I make another hovering tag containing the confirmed, death and recovered data. I first summarized the state-level data by country name, built a dataset to store the information and added a tag layer onto the shiny app. Now whenever users hover their cursers on any colored area, a tag will pop up showing the most recent infected, recovered, and the death count of the country.
+
+**To do:
+Allow users to switch the dataset to recovered, death and confirmed cases with a drop-down list, and automatically change color pallet accordingly. (Use leafletProxy)
+Allow users to choose which date they wish to examine, or automatically slide it to show the progress of time (use slider bar extension from shinyGaget).
